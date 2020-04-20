@@ -32,9 +32,16 @@ public class TracingConnection implements Connection {
 
   private final Tracer tracer;
 
+  private final TagExtractor tagExtractor;
+
   public TracingConnection(Connection connection, Tracer tracer) {
+    this(connection, tracer, null);
+  }
+
+  public TracingConnection(Connection connection, Tracer tracer, TagExtractor tagExtractor) {
     this.connection = connection;
     this.tracer = tracer;
+    this.tagExtractor = tagExtractor;
   }
 
   @Override
@@ -79,12 +86,12 @@ public class TracingConnection implements Connection {
 
   @Override
   public Channel createChannel() throws IOException {
-    return new TracingChannel(connection.createChannel(), tracer);
+    return new TracingChannel(connection.createChannel(), tracer, tagExtractor);
   }
 
   @Override
   public Channel createChannel(int channelNumber) throws IOException {
-    return new TracingChannel(connection.createChannel(channelNumber), tracer);
+    return new TracingChannel(connection.createChannel(channelNumber), tracer, tagExtractor);
   }
 
   @Override

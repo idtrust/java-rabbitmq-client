@@ -18,6 +18,7 @@ import io.opentracing.References;
 import io.opentracing.Span;
 import io.opentracing.SpanContext;
 import io.opentracing.Tracer;
+import io.opentracing.Tracer.SpanBuilder;
 import io.opentracing.propagation.Format;
 import io.opentracing.propagation.Format.Builtin;
 import io.opentracing.tag.Tags;
@@ -41,16 +42,26 @@ public class TracingUtils {
   }
 
   public static void buildAndFinishChildSpan(AMQP.BasicProperties props, String queue,
-      Tracer tracer) {
-    Span child = buildChildSpan(props, queue, tracer);
+      Tracer tracer, TagExtractor extractor) {
+    Span child = buildChildSpan(props, queue, tracer, extractor);
     if (child != null) {
       child.finish();
     }
   }
 
-  public static Span buildChildSpan(AMQP.BasicProperties props, String queue, Tracer tracer) {
+  private static void extractTags(SpanBuilder spanBuilder, AMQP.BasicProperties props, TagExtractor extractor) {
+    if (extractor == null) return;
+
+    Map<String, String> extracted = extractor.extractTags(props);
+    if (!extracted.isEmpty()) {
+      extracted.forEach(spanBuilder::withTag);
+    }
+  }
+  public static Span buildChildSpan(AMQP.BasicProperties props, String queue, Tracer tracer, TagExtractor extractor) {
     Tracer.SpanBuilder spanBuilder = tracer.buildSpan("receive")
         .withTag(Tags.SPAN_KIND.getKey(), Tags.SPAN_KIND_CONSUMER);
+
+    extractTags(spanBuilder, props, extractor);
 
     if (queue != null) {
       spanBuilder.withTag("queue", queue);
@@ -77,11 +88,13 @@ public class TracingUtils {
   }
 
   public static Span buildSpan(String exchange, String routingKey, AMQP.BasicProperties props,
-      Tracer tracer) {
+      Tracer tracer, TagExtractor extractor) {
     Tracer.SpanBuilder spanBuilder = tracer.buildSpan("send")
         .ignoreActiveSpan()
         .withTag(Tags.SPAN_KIND.getKey(), Tags.SPAN_KIND_PRODUCER)
         .withTag("routingKey", routingKey);
+
+    extractTags(spanBuilder, props, extractor);
 
     SpanContext spanContext = null;
 

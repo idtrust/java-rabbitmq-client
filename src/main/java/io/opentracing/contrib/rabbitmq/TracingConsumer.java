@@ -28,11 +28,13 @@ public class TracingConsumer implements Consumer {
   private final Consumer consumer;
   private final String queue;
   private final Tracer tracer;
+  private final TagExtractor tagExtractor;
 
-  public TracingConsumer(Consumer consumer, String queue, Tracer tracer) {
+  public TracingConsumer(Consumer consumer, String queue, Tracer tracer, TagExtractor tagExtractor) {
     this.consumer = consumer;
     this.queue = queue;
     this.tracer = tracer;
+    this.tagExtractor = tagExtractor;
   }
 
   @Override
@@ -65,7 +67,7 @@ public class TracingConsumer implements Consumer {
   @Override
   public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties,
       byte[] body) throws IOException {
-    Span child = TracingUtils.buildChildSpan(properties, queue, tracer);
+    Span child = TracingUtils.buildChildSpan(properties, queue, tracer, tagExtractor);
 
     try (Scope ignored = tracer.scopeManager().activate(child)) {
       consumer.handleDelivery(consumerTag, envelope, properties, body);

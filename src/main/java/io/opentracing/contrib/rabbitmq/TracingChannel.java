@@ -42,20 +42,23 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
 
-
 public class TracingChannel implements Channel {
 
   private final Channel channel;
   private final Tracer tracer;
+  private final TagExtractor tagExtractor;
 
   public TracingChannel(Channel channel, Tracer tracer) {
-    this.channel = channel;
-    this.tracer = tracer;
+    this(channel, tracer, null);
   }
 
-  /**
-   * GlobalTracer is used to get tracer
-   */
+  public TracingChannel(Channel channel, Tracer tracer, TagExtractor tagExtractor) {
+    this.channel = channel;
+    this.tracer = tracer;
+    this.tagExtractor = tagExtractor;
+  }
+
+  /** GlobalTracer is used to get tracer */
   public TracingChannel(Channel channel) {
     this(channel, GlobalTracer.get());
   }
@@ -116,8 +119,8 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public ConfirmListener addConfirmListener(ConfirmCallback confirmCallback,
-      ConfirmCallback confirmCallback1) {
+  public ConfirmListener addConfirmListener(
+      ConfirmCallback confirmCallback, ConfirmCallback confirmCallback1) {
     return channel.addConfirmListener(confirmCallback, confirmCallback1);
   }
 
@@ -157,22 +160,34 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public void basicPublish(String exchange, String routingKey, AMQP.BasicProperties props,
-      byte[] body) throws IOException {
+  public void basicPublish(
+      String exchange, String routingKey, AMQP.BasicProperties props, byte[] body)
+      throws IOException {
     basicPublish(exchange, routingKey, false, false, props, body);
   }
 
   @Override
-  public void basicPublish(String exchange, String routingKey, boolean mandatory,
-      AMQP.BasicProperties props, byte[] body) throws IOException {
+  public void basicPublish(
+      String exchange,
+      String routingKey,
+      boolean mandatory,
+      AMQP.BasicProperties props,
+      byte[] body)
+      throws IOException {
     basicPublish(exchange, routingKey, mandatory, false, props, body);
   }
 
   @Override
-  public void basicPublish(String exchange, String routingKey, boolean mandatory, boolean immediate,
-      AMQP.BasicProperties props, byte[] body) throws IOException {
+  public void basicPublish(
+      String exchange,
+      String routingKey,
+      boolean mandatory,
+      boolean immediate,
+      AMQP.BasicProperties props,
+      byte[] body)
+      throws IOException {
 
-    Span span = buildSpan(exchange, routingKey, props, tracer);
+    Span span = buildSpan(exchange, routingKey, props, tracer, tagExtractor);
     try (Scope ignored = tracer.scopeManager().activate(span)) {
       AMQP.BasicProperties properties = inject(props, span, tracer);
       channel.basicPublish(exchange, routingKey, mandatory, immediate, properties, body);
@@ -199,45 +214,78 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public AMQP.Exchange.DeclareOk exchangeDeclare(String exchange, BuiltinExchangeType type,
-      boolean durable) throws IOException {
+  public AMQP.Exchange.DeclareOk exchangeDeclare(
+      String exchange, BuiltinExchangeType type, boolean durable) throws IOException {
     return channel.exchangeDeclare(exchange, type, durable);
   }
 
   @Override
-  public AMQP.Exchange.DeclareOk exchangeDeclare(String exchange, String type, boolean durable,
-      boolean autoDelete, Map<String, Object> arguments) throws IOException {
+  public AMQP.Exchange.DeclareOk exchangeDeclare(
+      String exchange,
+      String type,
+      boolean durable,
+      boolean autoDelete,
+      Map<String, Object> arguments)
+      throws IOException {
     return channel.exchangeDeclare(exchange, type, durable, autoDelete, arguments);
   }
 
   @Override
-  public AMQP.Exchange.DeclareOk exchangeDeclare(String exchange, BuiltinExchangeType type,
-      boolean durable, boolean autoDelete, Map<String, Object> arguments) throws IOException {
+  public AMQP.Exchange.DeclareOk exchangeDeclare(
+      String exchange,
+      BuiltinExchangeType type,
+      boolean durable,
+      boolean autoDelete,
+      Map<String, Object> arguments)
+      throws IOException {
     return channel.exchangeDeclare(exchange, type, durable, autoDelete, arguments);
   }
 
   @Override
-  public AMQP.Exchange.DeclareOk exchangeDeclare(String exchange, String type, boolean durable,
-      boolean autoDelete, boolean internal, Map<String, Object> arguments) throws IOException {
-    return channel.exchangeDeclare(exchange, type, durable, autoDelete, internal, arguments);
-  }
-
-  @Override
-  public AMQP.Exchange.DeclareOk exchangeDeclare(String exchange, BuiltinExchangeType type,
-      boolean durable, boolean autoDelete, boolean internal, Map<String, Object> arguments)
+  public AMQP.Exchange.DeclareOk exchangeDeclare(
+      String exchange,
+      String type,
+      boolean durable,
+      boolean autoDelete,
+      boolean internal,
+      Map<String, Object> arguments)
       throws IOException {
     return channel.exchangeDeclare(exchange, type, durable, autoDelete, internal, arguments);
   }
 
   @Override
-  public void exchangeDeclareNoWait(String exchange, String type, boolean durable,
-      boolean autoDelete, boolean internal, Map<String, Object> arguments) throws IOException {
+  public AMQP.Exchange.DeclareOk exchangeDeclare(
+      String exchange,
+      BuiltinExchangeType type,
+      boolean durable,
+      boolean autoDelete,
+      boolean internal,
+      Map<String, Object> arguments)
+      throws IOException {
+    return channel.exchangeDeclare(exchange, type, durable, autoDelete, internal, arguments);
+  }
+
+  @Override
+  public void exchangeDeclareNoWait(
+      String exchange,
+      String type,
+      boolean durable,
+      boolean autoDelete,
+      boolean internal,
+      Map<String, Object> arguments)
+      throws IOException {
     channel.exchangeDeclareNoWait(exchange, type, durable, autoDelete, internal, arguments);
   }
 
   @Override
-  public void exchangeDeclareNoWait(String exchange, BuiltinExchangeType type, boolean durable,
-      boolean autoDelete, boolean internal, Map<String, Object> arguments) throws IOException {
+  public void exchangeDeclareNoWait(
+      String exchange,
+      BuiltinExchangeType type,
+      boolean durable,
+      boolean autoDelete,
+      boolean internal,
+      Map<String, Object> arguments)
+      throws IOException {
     channel.exchangeDeclareNoWait(exchange, type, durable, autoDelete, internal, arguments);
   }
 
@@ -269,14 +317,16 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public AMQP.Exchange.BindOk exchangeBind(String destination, String source, String routingKey,
-      Map<String, Object> arguments) throws IOException {
+  public AMQP.Exchange.BindOk exchangeBind(
+      String destination, String source, String routingKey, Map<String, Object> arguments)
+      throws IOException {
     return channel.exchangeBind(destination, source, routingKey, arguments);
   }
 
   @Override
-  public void exchangeBindNoWait(String destination, String source, String routingKey,
-      Map<String, Object> arguments) throws IOException {
+  public void exchangeBindNoWait(
+      String destination, String source, String routingKey, Map<String, Object> arguments)
+      throws IOException {
     channel.exchangeBindNoWait(destination, source, routingKey, arguments);
   }
 
@@ -287,14 +337,16 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public AMQP.Exchange.UnbindOk exchangeUnbind(String destination, String source, String routingKey,
-      Map<String, Object> arguments) throws IOException {
+  public AMQP.Exchange.UnbindOk exchangeUnbind(
+      String destination, String source, String routingKey, Map<String, Object> arguments)
+      throws IOException {
     return channel.exchangeUnbind(destination, source, routingKey, arguments);
   }
 
   @Override
-  public void exchangeUnbindNoWait(String destination, String source, String routingKey,
-      Map<String, Object> arguments) throws IOException {
+  public void exchangeUnbindNoWait(
+      String destination, String source, String routingKey, Map<String, Object> arguments)
+      throws IOException {
     channel.exchangeUnbindNoWait(destination, source, routingKey, arguments);
   }
 
@@ -304,14 +356,24 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public AMQP.Queue.DeclareOk queueDeclare(String queue, boolean durable, boolean exclusive,
-      boolean autoDelete, Map<String, Object> arguments) throws IOException {
+  public AMQP.Queue.DeclareOk queueDeclare(
+      String queue,
+      boolean durable,
+      boolean exclusive,
+      boolean autoDelete,
+      Map<String, Object> arguments)
+      throws IOException {
     return channel.queueDeclare(queue, durable, exclusive, autoDelete, arguments);
   }
 
   @Override
-  public void queueDeclareNoWait(String queue, boolean durable, boolean exclusive,
-      boolean autoDelete, Map<String, Object> arguments) throws IOException {
+  public void queueDeclareNoWait(
+      String queue,
+      boolean durable,
+      boolean exclusive,
+      boolean autoDelete,
+      Map<String, Object> arguments)
+      throws IOException {
     channel.queueDeclareNoWait(queue, durable, exclusive, autoDelete, arguments);
   }
 
@@ -344,14 +406,16 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public AMQP.Queue.BindOk queueBind(String queue, String exchange, String routingKey,
-      Map<String, Object> arguments) throws IOException {
+  public AMQP.Queue.BindOk queueBind(
+      String queue, String exchange, String routingKey, Map<String, Object> arguments)
+      throws IOException {
     return channel.queueBind(queue, exchange, routingKey, arguments);
   }
 
   @Override
-  public void queueBindNoWait(String queue, String exchange, String routingKey,
-      Map<String, Object> arguments) throws IOException {
+  public void queueBindNoWait(
+      String queue, String exchange, String routingKey, Map<String, Object> arguments)
+      throws IOException {
     channel.queueBindNoWait(queue, exchange, routingKey, arguments);
   }
 
@@ -362,8 +426,9 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public AMQP.Queue.UnbindOk queueUnbind(String queue, String exchange, String routingKey,
-      Map<String, Object> arguments) throws IOException {
+  public AMQP.Queue.UnbindOk queueUnbind(
+      String queue, String exchange, String routingKey, Map<String, Object> arguments)
+      throws IOException {
     return channel.queueUnbind(queue, exchange, routingKey, arguments);
   }
 
@@ -376,7 +441,7 @@ public class TracingChannel implements Channel {
   public GetResponse basicGet(String queue, boolean autoAck) throws IOException {
     GetResponse response = channel.basicGet(queue, autoAck);
     if (response != null) {
-      TracingUtils.buildAndFinishChildSpan(response.getProps(), queue, tracer);
+      TracingUtils.buildAndFinishChildSpan(response.getProps(), queue, tracer, tagExtractor);
     }
     return response;
   }
@@ -402,28 +467,35 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public String basicConsume(String queue, DeliverCallback deliverCallback,
-      CancelCallback cancelCallback) throws IOException {
-    return channel
-        .basicConsume(queue, new TracingDeliverCallback(deliverCallback, queue, tracer),
-            cancelCallback);
-  }
-
-  @Override
-  public String basicConsume(String queue, DeliverCallback deliverCallback,
-      ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException {
-    return channel.basicConsume(queue, new TracingDeliverCallback(deliverCallback, queue, tracer),
-        shutdownSignalCallback);
-  }
-
-  @Override
-  public String basicConsume(String queue, DeliverCallback deliverCallback,
-      CancelCallback cancelCallback, ConsumerShutdownSignalCallback shutdownSignalCallback)
+  public String basicConsume(
+      String queue, DeliverCallback deliverCallback, CancelCallback cancelCallback)
       throws IOException {
-    return channel
-        .basicConsume(queue, new TracingDeliverCallback(deliverCallback, queue, tracer),
-            cancelCallback,
-            shutdownSignalCallback);
+    return channel.basicConsume(
+        queue, new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor), cancelCallback);
+  }
+
+  @Override
+  public String basicConsume(
+      String queue,
+      DeliverCallback deliverCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue, new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor), shutdownSignalCallback);
+  }
+
+  @Override
+  public String basicConsume(
+      String queue,
+      DeliverCallback deliverCallback,
+      CancelCallback cancelCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        cancelCallback,
+        shutdownSignalCallback);
   }
 
   @Override
@@ -432,59 +504,98 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public String basicConsume(String queue, boolean autoAck, DeliverCallback deliverCallback,
-      CancelCallback cancelCallback) throws IOException {
-    return channel
-        .basicConsume(queue, autoAck, new TracingDeliverCallback(deliverCallback, queue, tracer),
-            cancelCallback);
-  }
-
-  @Override
-  public String basicConsume(String queue, boolean autoAck, DeliverCallback deliverCallback,
-      ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException {
-    return channel
-        .basicConsume(queue, autoAck, new TracingDeliverCallback(deliverCallback, queue, tracer),
-            shutdownSignalCallback);
-  }
-
-  @Override
-  public String basicConsume(String queue, boolean autoAck, DeliverCallback deliverCallback,
-      CancelCallback cancelCallback, ConsumerShutdownSignalCallback shutdownSignalCallback)
+  public String basicConsume(
+      String queue, boolean autoAck, DeliverCallback deliverCallback, CancelCallback cancelCallback)
       throws IOException {
-    return channel
-        .basicConsume(queue, autoAck, new TracingDeliverCallback(deliverCallback, queue, tracer),
-            cancelCallback, shutdownSignalCallback);
+    return channel.basicConsume(
+        queue, autoAck, new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor), cancelCallback);
   }
 
   @Override
-  public String basicConsume(String queue, boolean autoAck, Map<String, Object> arguments,
-      Consumer callback) throws IOException {
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      DeliverCallback deliverCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        shutdownSignalCallback);
+  }
+
+  @Override
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      DeliverCallback deliverCallback,
+      CancelCallback cancelCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        cancelCallback,
+        shutdownSignalCallback);
+  }
+
+  @Override
+  public String basicConsume(
+      String queue, boolean autoAck, Map<String, Object> arguments, Consumer callback)
+      throws IOException {
     return basicConsume(queue, autoAck, "", false, false, arguments, callback);
   }
 
   @Override
-  public String basicConsume(String queue, boolean autoAck, Map<String, Object> arguments,
-      DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
-    return channel.basicConsume(queue, autoAck, arguments,
-        new TracingDeliverCallback(deliverCallback, queue, tracer), cancelCallback);
-  }
-
-  @Override
-  public String basicConsume(String queue, boolean autoAck, Map<String, Object> arguments,
-      DeliverCallback deliverCallback, ConsumerShutdownSignalCallback shutdownSignalCallback)
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      Map<String, Object> arguments,
+      DeliverCallback deliverCallback,
+      CancelCallback cancelCallback)
       throws IOException {
-    return channel.basicConsume(queue, autoAck, arguments,
-        new TracingDeliverCallback(deliverCallback, queue, tracer), shutdownSignalCallback);
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        arguments,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        cancelCallback);
   }
 
   @Override
-  public String basicConsume(String queue, boolean autoAck, Map<String, Object> arguments,
-      DeliverCallback deliverCallback, CancelCallback cancelCallback,
-      ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException {
-    return channel
-        .basicConsume(queue, autoAck, arguments,
-            new TracingDeliverCallback(deliverCallback, queue, tracer), cancelCallback,
-            shutdownSignalCallback);
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      Map<String, Object> arguments,
+      DeliverCallback deliverCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        arguments,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        shutdownSignalCallback);
+  }
+
+  @Override
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      Map<String, Object> arguments,
+      DeliverCallback deliverCallback,
+      CancelCallback cancelCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        arguments,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        cancelCallback,
+        shutdownSignalCallback);
   }
 
   @Override
@@ -494,63 +605,141 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public String basicConsume(String queue, boolean autoAck, String consumerTag,
-      DeliverCallback deliverCallback, CancelCallback cancelCallback) throws IOException {
-    return channel.basicConsume(queue, autoAck, consumerTag,
-        new TracingDeliverCallback(deliverCallback, queue, tracer), cancelCallback);
-  }
-
-  @Override
-  public String basicConsume(String queue, boolean autoAck, String consumerTag,
-      DeliverCallback deliverCallback, ConsumerShutdownSignalCallback shutdownSignalCallback)
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      String consumerTag,
+      DeliverCallback deliverCallback,
+      CancelCallback cancelCallback)
       throws IOException {
-    return channel.basicConsume(queue, autoAck, consumerTag,
-        new TracingDeliverCallback(deliverCallback, queue, tracer), shutdownSignalCallback);
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        consumerTag,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        cancelCallback);
   }
 
   @Override
-  public String basicConsume(String queue, boolean autoAck, String consumerTag,
-      DeliverCallback deliverCallback, CancelCallback cancelCallback,
-      ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException {
-    return channel
-        .basicConsume(queue, autoAck, consumerTag,
-            new TracingDeliverCallback(deliverCallback, queue, tracer), cancelCallback,
-            shutdownSignalCallback);
-  }
-
-  @Override
-  public String basicConsume(String queue, boolean autoAck, String consumerTag, boolean noLocal,
-      boolean exclusive, Map<String, Object> arguments, Consumer callback) throws IOException {
-    return channel.basicConsume(queue, autoAck, consumerTag, noLocal, exclusive, arguments,
-        new TracingConsumer(callback, queue, tracer));
-  }
-
-  @Override
-  public String basicConsume(String queue, boolean autoAck, String consumerTag, boolean noLocal,
-      boolean exclusive, Map<String, Object> arguments, DeliverCallback deliverCallback,
-      CancelCallback cancelCallback) throws IOException {
-    return channel.basicConsume(queue, autoAck, consumerTag, noLocal, exclusive, arguments,
-        new TracingDeliverCallback(deliverCallback, queue, tracer), cancelCallback);
-  }
-
-  @Override
-  public String basicConsume(String queue, boolean autoAck, String consumerTag, boolean noLocal,
-      boolean exclusive, Map<String, Object> arguments, DeliverCallback deliverCallback,
-      ConsumerShutdownSignalCallback shutdownSignalCallback) throws IOException {
-    return channel
-        .basicConsume(queue, autoAck, consumerTag, noLocal, exclusive, arguments,
-            new TracingDeliverCallback(deliverCallback, queue, tracer), shutdownSignalCallback);
-  }
-
-  @Override
-  public String basicConsume(String queue, boolean autoAck, String consumerTag, boolean noLocal,
-      boolean exclusive, Map<String, Object> arguments, DeliverCallback deliverCallback,
-      CancelCallback cancelCallback, ConsumerShutdownSignalCallback shutdownSignalCallback)
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      String consumerTag,
+      DeliverCallback deliverCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
       throws IOException {
-    return channel
-        .basicConsume(queue, autoAck, consumerTag, noLocal, exclusive, arguments,
-            new TracingDeliverCallback(deliverCallback, queue, tracer),
-            cancelCallback, shutdownSignalCallback);
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        consumerTag,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        shutdownSignalCallback);
+  }
+
+  @Override
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      String consumerTag,
+      DeliverCallback deliverCallback,
+      CancelCallback cancelCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        consumerTag,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        cancelCallback,
+        shutdownSignalCallback);
+  }
+
+  @Override
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      String consumerTag,
+      boolean noLocal,
+      boolean exclusive,
+      Map<String, Object> arguments,
+      Consumer callback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        consumerTag,
+        noLocal,
+        exclusive,
+        arguments,
+        new TracingConsumer(callback, queue, tracer, tagExtractor));
+  }
+
+  @Override
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      String consumerTag,
+      boolean noLocal,
+      boolean exclusive,
+      Map<String, Object> arguments,
+      DeliverCallback deliverCallback,
+      CancelCallback cancelCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        consumerTag,
+        noLocal,
+        exclusive,
+        arguments,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        cancelCallback);
+  }
+
+  @Override
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      String consumerTag,
+      boolean noLocal,
+      boolean exclusive,
+      Map<String, Object> arguments,
+      DeliverCallback deliverCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        consumerTag,
+        noLocal,
+        exclusive,
+        arguments,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        shutdownSignalCallback);
+  }
+
+  @Override
+  public String basicConsume(
+      String queue,
+      boolean autoAck,
+      String consumerTag,
+      boolean noLocal,
+      boolean exclusive,
+      Map<String, Object> arguments,
+      DeliverCallback deliverCallback,
+      CancelCallback cancelCallback,
+      ConsumerShutdownSignalCallback shutdownSignalCallback)
+      throws IOException {
+    return channel.basicConsume(
+        queue,
+        autoAck,
+        consumerTag,
+        noLocal,
+        exclusive,
+        arguments,
+        new TracingDeliverCallback(deliverCallback, queue, tracer, tagExtractor),
+        cancelCallback,
+        shutdownSignalCallback);
   }
 
   @Override
@@ -635,8 +824,7 @@ public class TracingChannel implements Channel {
   }
 
   @Override
-  public CompletableFuture<Command> asyncCompletableRpc(
-      Method method) throws IOException {
+  public CompletableFuture<Command> asyncCompletableRpc(Method method) throws IOException {
     return channel.asyncCompletableRpc(method);
   }
 
@@ -664,5 +852,4 @@ public class TracingChannel implements Channel {
   public boolean isOpen() {
     return channel.isOpen();
   }
-
 }

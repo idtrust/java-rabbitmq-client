@@ -24,16 +24,18 @@ public class TracingDeliverCallback implements DeliverCallback {
   private final DeliverCallback deliverCallback;
   private final String queue;
   private final Tracer tracer;
+  private final TagExtractor tagExtractor;
 
-  public TracingDeliverCallback(DeliverCallback deliverCallback, String queue, Tracer tracer) {
+  public TracingDeliverCallback(DeliverCallback deliverCallback, String queue, Tracer tracer, TagExtractor tagExtractor) {
     this.deliverCallback = deliverCallback;
     this.queue = queue;
     this.tracer = tracer;
+    this.tagExtractor = tagExtractor;
   }
 
   @Override
   public void handle(String consumerTag, Delivery message) throws IOException {
-    Span child = TracingUtils.buildChildSpan(message.getProperties(), queue, tracer);
+    Span child = TracingUtils.buildChildSpan(message.getProperties(), queue, tracer, tagExtractor);
     try (Scope ignored = tracer.scopeManager().activate(child)) {
       deliverCallback.handle(consumerTag, message);
     } finally {
