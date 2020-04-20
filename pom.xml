@@ -28,9 +28,9 @@
   <inceptionYear>2017-2020</inceptionYear>
 
   <scm>
-    <url>http://github.com/opentracing-contrib/java-rabbitmq-client</url>
-    <connection>scm:git:https://github.com/opentracing-contrib/java-rabbitmq-client.git</connection>
-    <developerConnection>scm:git:https://github.com/opentracing-contrib/java-rabbitmq-client.git
+    <url>http://github.com/idtrust/java-rabbitmq-client</url>
+    <connection>scm:git:https://github.com/idtrust/java-rabbitmq-client.git</connection>
+    <developerConnection>scm:git:https://github.com/idtrust/java-rabbitmq-client.git
     </developerConnection>
     <tag>HEAD</tag>
   </scm>
@@ -194,17 +194,25 @@
         </executions>
       </plugin>
     </plugins>
+    <extensions>
+      <extension>
+        <groupId>org.springframework.build</groupId>
+        <artifactId>aws-maven</artifactId>
+        <version>5.0.0.RELEASE</version>
+      </extension>
+    </extensions>
   </build>
 
   <distributionManagement>
     <repository>
-      <id>bintray</id>
-      <url>https://api.bintray.com/maven/opentracing/maven/opentracing-rabbitmq-client/;publish=1
-      </url>
+      <id>idtrust-releases</id>
+      <name>iDtrust Releases</name>
+      <url>s3://repo.idtrust.com.br/releases</url>
     </repository>
     <snapshotRepository>
-      <id>jfrog-snapshots</id>
-      <url>http://oss.jfrog.org/artifactory/oss-snapshot-local</url>
+      <id>idtrust-snapshots</id>
+      <name>iDtrust Snapshots</name>
+      <url>s3://repo.idtrust.com.br/snapshots/</url>
     </snapshotRepository>
   </distributionManagement>
 
