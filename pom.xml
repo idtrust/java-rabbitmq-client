@@ -20,7 +20,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.opentracing.contrib</groupId>
   <artifactId>opentracing-rabbitmq-client</artifactId>
-  <version>0.1.11-SNAPSHOT</version>
+  <version>0.1.11-KRAKEN</version>
 
   <name>${project.groupId}:${project.artifactId}</name>
   <description>OpenTracing Instrumentation for RabbitMQ Client</description>
